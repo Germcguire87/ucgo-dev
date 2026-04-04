@@ -1,0 +1,14 @@
+# Node
+**/node_modules/
+**/npm-debug.log*
+
+# Build output
+**/dist/
+**/build/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
