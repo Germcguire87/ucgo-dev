@@ -1,0 +1,19 @@
+{
+  "name": "ucgo-tools",
+  "version": "1.0.0",
+  "author": "Gerard McGuire",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "decode:packet": "tsx src/packet-decoder/index.ts"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  }
+}
