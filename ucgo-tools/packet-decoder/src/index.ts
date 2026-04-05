@@ -214,8 +214,8 @@ function main(): void {
 
   let xorKeyArg: string | undefined;
   let xorTablePath: string | undefined;
-  let bfKey = "QQzXzQnpzTpnXz" ;
-  // let bfKey = "chrTCPPassword" ;
+  let bfKey = "QQzXzQnpzTpnXz" ; // This password should be used when parsing captures from UCGOHost server.
+  // let bfKey = "chrTCPPassword" ; This password should be used when parsing captures from the titans server.
   let legacyXor = false;
   let dumpFilePath: string | undefined;
   let jsonFilePath: string | undefined;
@@ -328,7 +328,7 @@ function main(): void {
     }
     fs.mkdirSync(parsedOutputDir, { recursive: true });
   } else {
-    targets = [path.resolve(filePath)];
+    targets = [path.resolve(filePath!)];
   }
 
   let totalPackets = 0;
