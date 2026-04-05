@@ -10,7 +10,7 @@ Client → Login Server
 
 ## Summary
 
-First packet sent by the client during login. Contains a UTF-16LE username and a deterministic encrypted payload (likely credentials).
+First packet sent by the client during login. Contains a UTF-16LE username and a deterministic encrypted payload influenced by both username and password. Packet size varies based on username length and password block size.
 
 ---
 
@@ -67,11 +67,13 @@ First packet sent by the client during login. Contains a UTF-16LE username and a
 
 ### Examples
 
-| Raw Bytes               | Decoded     |
-| ----------------------- | ----------- |
-| `6A 00 69 00 6D 00 ...` | jimbotodo   |
-| `76 00 61 00 72 00 ...` | vargas06123 |
-| `61 00 73 00 64 00`     | asd         |
+| Raw Bytes               | Decoded   |
+| ----------------------- | --------- |
+| `61 00`                 | a         |
+| `61 00 61 00`           | aa        |
+| `61 00 61 00 61 00`     | aaa       |
+| `74 00 65 00 73 00 ...` | testuser  |
+| `6A 00 69 00 6D 00 ...` | jimbotodo |
 
 ---
 
@@ -85,7 +87,10 @@ First packet sent by the client during login. Contains a UTF-16LE username and a
 
 | Username    | Length | Byte @ 0x40 |
 | ----------- | ------ | ----------- |
-| asd         | 3      | 0x83        |
+| a           | 1      | 0x81        |
+| aa          | 2      | 0x82        |
+| aaa         | 3      | 0x83        |
+| testuser    | 8      | 0x88        |
 | jimbotodo   | 9      | 0x89        |
 | vargas06123 | 11     | 0x8B        |
 
@@ -99,23 +104,44 @@ First packet sent by the client during login. Contains a UTF-16LE username and a
 ## Encrypted Payload
 
 * Begins immediately after username null terminator
-* Size varies with username length
+* Deterministic function of username and password
 * Appears Blowfish-encrypted
 * Block-aligned (8-byte multiples)
 
 ### Observations
 
-* Deterministic: identical inputs produce identical output
-* No per-session randomness observed
-* Independent of header seed field
+* Identical username/password → identical encrypted payload
+* Password changes → encrypted payload changes
+* Header seed (0x04–0x07) does NOT affect payload
+* Repeated ciphertext blocks observed in some cases
+
+---
+
+## Encryption Properties
+
+* Blowfish block size: **8 bytes**
+* Deterministic: no IV or nonce observed
+* Payload size changes at block boundaries
+* Likely ECB mode (identical plaintext blocks → identical ciphertext blocks observed)
+* Short passwords may produce identical ciphertext due to padding
 
 ---
 
 ## Size Behavior
 
 * Packet size scales with username length
-* XORSize increases with payload size
-* BlowfishSize is padded to 8-byte boundaries
+* Packet size also scales with password length (via block thresholds)
+
+### Observed Behavior
+
+| Password Length | Behavior                            |
+| --------------- | ----------------------------------- |
+| ≤ 7 chars       | Fits within smaller block size      |
+| ≥ 8 chars       | Expands to next Blowfish block      |
+| 8 vs 9 chars    | Same packet size (same block count) |
+
+* `XORSize` increases with total payload size
+* `BlowfishSize` is padded to 8-byte boundaries
 
 ---
 
@@ -127,15 +153,18 @@ First packet sent by the client during login. Contains a UTF-16LE username and a
 * Encrypted payload begins immediately after username
 * Header contains dynamic session field (0x04–0x07)
 * Encrypted payload is deterministic across sessions
+* Password influences encrypted payload content and size
 
 ---
 
 ## Unknowns / Open Questions
 
-* Structure of encrypted payload (password? token? composite data?)
+* Internal structure of encrypted payload (password hash? composite structure?)
 * Exact XOR layer behavior (pre/post Blowfish)
 * Meaning of header seed field (session ID? crypto seed?)
 * Exact formula for XORSize
+* Exact Blowfish key usage (likely `chrTCPPassword`)
+* Whether encryption mode is definitively ECB
 
 ---
 
@@ -145,5 +174,6 @@ This packet is now structurally understood and can be reliably parsed for:
 
 * Username extraction
 * Payload boundary detection
+* Size prediction based on input
 
-Further work should focus on decrypting or modeling the encrypted payload.
+Further work should focus on decrypting or modeling the encrypted payload and implementing a working encoder.
