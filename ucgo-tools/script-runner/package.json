@@ -6,7 +6,7 @@
   "main": "index.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "decode:packet": "tsx src/index.ts"
+    "decrypt": "tsx scripts/decryptTest.ts"
   },
   "keywords": [],
   "license": "ISC",
@@ -15,5 +15,8 @@
     "@types/node": "^25.5.0",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "blowfish-node": "^1.1.4"
   }
 }
