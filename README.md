@@ -86,11 +86,25 @@ This layer will consume the protocol knowledge established in `ucgo-protocol`.
 
 ## 🔄 Current Status
 
-* Login request packet (`0x00030000`) is largely understood
-* Packet structure and username encoding are verified
-* Encrypted payload boundaries identified
-* Tooling for parsing and analysis is in progress
-* Expanding into full login flow reverse engineering
+### Login Flow — Complete
+
+The full client ↔ login server handshake is documented across 9 packets:
+
+| Opcode | Name | Direction | Status |
+|--------|------|-----------|--------|
+| `0x00030000` | CLIENT_LOGIN_REQUEST | Client → Server | Complete |
+| `0x00030001` | CLIENT_ACCOUNT_ECHO | Client → Server | Complete |
+| `0x00030003` | CLIENT_CREATE_CHARACTER | Client → Server | Partial |
+| `0x00030004` | CLIENT_DELETE_CHARACTER | Client → Server | Complete |
+| `0x00038000` | SERVER_LOGIN_RESPONSE | Server → Client | Complete |
+| `0x00038001` | SERVER_CHARACTER_SLOT_LIST | Server → Client | Complete |
+| `0x00038002` | SERVER_CHARACTER_DATA | Server → Client | Complete |
+| `0x00038003` | SERVER_CREATE_CHARACTER_RESPONSE | Server → Client | Partial |
+| `0x00038005` | SERVER_GAME_SERVER_INFO | Server → Client | Partial |
+
+Crypto reference (Blowfish + XOR table, deviations from standard) and the full login flow sequence are also documented.
+
+Tooling for capture parsing, stream reassembly, and decryption is functional.
 
 ---
 
@@ -98,9 +112,9 @@ This layer will consume the protocol knowledge established in `ucgo-protocol`.
 
 Near-term focus:
 
-* Continue mapping the login flow packet sequence
-* Expand `packet-catalog.json`
-* Build reliable parsing and fixture tooling
+* Begin documenting game server protocol (post-login handoff)
+* Create `packet-catalog.json` as a machine-readable index
+* Build capture normalization and fixture tooling
 
 Mid-term focus:
 
@@ -123,10 +137,13 @@ It is not affiliated with or endorsed by the original developers or publishers o
 
 ---
 
-## 🤝 Contributing (Future)
+## 🤝 Contributing
 
-The project is currently in an early research phase.
-As the protocol becomes more stable and documented, contribution guidelines will be added.
+Contributions are welcome — protocol findings, tooling improvements, and capture analysis all help.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to get started and what to expect from the review process.
+
+Please read the [Code of Conduct](CODE_OF_CONDUCT.md) before participating.
 
 ---
 
