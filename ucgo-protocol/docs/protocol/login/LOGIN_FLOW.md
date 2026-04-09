@@ -139,7 +139,7 @@ The account ID is the primary session identifier throughout the entire flow:
 | `0x00030005` | Client → Login     | Game server request          | 🟢 Complete |
 | `0x00038000` | Login → Client     | Login response               | 🟢 Complete |
 | `0x00038001` | Login → Client     | Character slot list          | 🟢 Complete |
-| `0x00038002` | Login → Client     | Character data               | 🔴 Partial |
+| `0x00038002` | Login → Client     | Character data               | 🟢 Complete |
 | `0x00038003` | Login → Client     | Create character response    | 🟡 Partial |
 | `0x00038004` | Login → Client     | Delete character response    | 🟢 Complete |
 | `0x00038005` | Login → Client     | Game server info             | 🟡 Partial |
@@ -148,6 +148,8 @@ The account ID is the primary session identifier throughout the entire flow:
 
 ## Next Steps
 
-The `0x00038002` character data packet and the `0x00030002` unknown packets are the primary remaining gaps in login flow documentation. Additional captures with known character data (specific appearance values, known stat distributions) would allow full decoding of `0x00038002`.
+The `0x00030002` unknown packets are the primary remaining gap in login flow documentation. All character management and authentication opcodes are now documented.
+
+The `0x00030003` (create character) and `0x00038005` (game server info) packets are partially documented — additional captures would help confirm the remaining unknown fields.
 
 The game server flow begins at opcode `0x00000016` (`clientToGameServer`) which is visible in the warmuro/dante captures and represents a separate documentation effort.
