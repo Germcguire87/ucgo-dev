@@ -48,7 +48,6 @@ Contains:
 * Raw and transformed network captures
 * Extracted packet data
 * Protocol documentation (`docs/protocol/`)
-* `packet-catalog.json` (structured packet metadata)
 
 This directory represents the **source of truth** for protocol understanding.
 
