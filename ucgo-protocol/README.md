@@ -40,15 +40,17 @@ The goal of `ucgo-protocol` is to:
 
 ## 📁 Structure
 
-```txt id="3n9x8r"
+```txt
 ucgo-protocol/
   captures/
     raw/
+      titans-style/
+      ucgohost-style/
     parsed/
-    extracted/
+      login/
   docs/
     protocol/
-  packet-catalog.json
+      login/
   README.md
 ```
 
@@ -60,21 +62,15 @@ Contains all network data used for reverse engineering.
 
 #### `raw/`
 
-* Original capture data
-* Wireshark exports, TCP dumps, or third-party logs
-* Never modified
+* Original capture data, never modified
+* Organized by capture style: `titans-style/`, `ucgohost-style/`
+* Wireshark exports and TCP dumps
 
 #### `parsed/`
 
-* Structured interpretations of capture data
-* Typically generated via tools
-* May include decoded headers, field breakdowns, etc.
-
-#### `extracted/`
-
-* Isolated UCGO packet binaries or hex dumps
-* Clean inputs for tooling and testing
-* Used as fixtures for validation
+* Structured output from the packet decoder tool
+* Organized by flow: `login/`
+* Used as the primary reference when writing packet documentation
 
 ---
 
@@ -87,8 +83,17 @@ Organized by flow or feature:
 ```txt
 docs/protocol/
   login/
-    client-login-request.md
-  ...
+    0x00030000-CLIENT_LOGIN_REQUEST.md
+    0x00030001-CLIENT_ACCOUNT_ECHO.md
+    0x00030003-CLIENT_CREATE_CHARACTER.md
+    0x00030004-CLIENT_DELETE_CHARACTER.md
+    0x00038000-SERVER_LOGIN_RESPONSE.md
+    0x00038001-SERVER_CHARACTER_SLOT_LIST.md
+    0x00038002-SERVER_CHARACTER_DATA.md
+    0x00038003-SERVER_CREATE_CHARACTER_RESPONSE.md
+    0x00038005-SERVER_GAME_SERVER_INFO.md
+    CRYPTO_REFERENCE.md
+    LOGIN_FLOW.md
 ```
 
 Each document should aim to describe:
@@ -102,42 +107,21 @@ Each document should aim to describe:
 
 ---
 
-### `packet-catalog.json`
-
-A structured index of known packets.
-
-Each entry may include:
-
-* opcode
-* direction (client → server, server → client)
-* name
-* description
-* known fields
-* documentation reference
-* confidence level
-
-This file acts as a **machine-readable map of the protocol**.
-
----
-
 ## 🔄 Workflow
 
-```txt id="9z2mqp"
+```txt
 raw captures
    ↓
 ucgo-tools (parsing, extraction)
    ↓
-parsed / extracted data
+captures/parsed/
    ↓
-documentation (docs/protocol)
-   ↓
-packet-catalog.json
+docs/protocol/
 ```
 
 * Raw data is collected in `captures/raw`
-* Tools process and extract meaningful packet data
+* Tools process and extract meaningful packet data into `captures/parsed`
 * Findings are documented in `docs/protocol`
-* Structured summaries are added to `packet-catalog.json`
 
 ---
 
@@ -155,10 +139,24 @@ This helps prevent assumptions from becoming “facts.”
 
 ## 🚀 Current Status
 
-* Login request packet (`0x00030000`) is well understood
-* Username encoding and packet structure verified
-* Encrypted payload boundaries identified
-* Beginning expansion into full login flow
+### Login Flow — Documented
+
+| Opcode | Name | Status |
+|--------|------|--------|
+| `0x00030000` | CLIENT_LOGIN_REQUEST | Complete |
+| `0x00030001` | CLIENT_ACCOUNT_ECHO | Complete |
+| `0x00030003` | CLIENT_CREATE_CHARACTER | Partial |
+| `0x00030004` | CLIENT_DELETE_CHARACTER | Complete |
+| `0x00038000` | SERVER_LOGIN_RESPONSE | Complete |
+| `0x00038001` | SERVER_CHARACTER_SLOT_LIST | Complete |
+| `0x00038002` | SERVER_CHARACTER_DATA | Complete |
+| `0x00038003` | SERVER_CREATE_CHARACTER_RESPONSE | Partial |
+| `0x00038005` | SERVER_GAME_SERVER_INFO | Partial |
+
+Encryption scheme (Blowfish + XOR table) is fully documented in `CRYPTO_REFERENCE.md`.
+Full login sequence and branching logic documented in `LOGIN_FLOW.md`.
+
+Next area: game server protocol (packets exchanged after handoff from login server).
 
 ---
 

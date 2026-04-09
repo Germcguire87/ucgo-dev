@@ -44,24 +44,35 @@ This layer acts as the **bridge between raw data and structured protocol knowled
 
 ```txt
 ucgo-tools/
-  tools/
-    packet-decoder/
-      src/
-      test/
+  models/
+  packet-decoder/
+    src/
+    data/
+    docs/
+  script-runner/
+    scripts/
 ```
 
-### `tools/packet-decoder/`
+### `packet-decoder/`
 
-The first major tool in the toolkit.
+The primary tool. Parses `.pcap` and Wireshark text exports, reassembles TCP streams,
+decrypts UCGO packets, and outputs hex dumps and JSON for protocol documentation.
 
-Responsibilities:
+See [packet-decoder/README.md](packet-decoder/README.md) for usage.
 
-* Parse extracted UCGO packet data
-* Decode known packet structures (e.g. login request)
-* Validate packet boundaries and fields
-* Output structured representations for analysis
+### `models/`
 
-This tool is the foundation for understanding and verifying packet formats.
+TypeScript interfaces matching documented packet structures. Currently covers:
+
+* `ClientLoginRequest30000.ts` — `0x00030000`
+* `ServerLoginResponse38000.ts` — `0x00038000`
+
+These are intended to evolve alongside the protocol documentation.
+
+### `script-runner/`
+
+Experimental scripts for isolated crypto and decryption tests. Not part of the main
+decode pipeline — used for one-off verification during protocol research.
 
 ---
 
@@ -108,9 +119,11 @@ raw captures → ucgo-tools → structured data → ucgo-protocol docs → (futu
 
 ## 🚀 Current Status
 
-* Initial packet decoding tooling in progress
-* Focused on login request packet (`0x00030000`)
-* Expanding toward broader login flow analysis
+* Packet decoder is functional — handles `.pcap` and Wireshark text exports
+* Full decrypt pipeline operational (Blowfish + XOR table)
+* TCP stream reassembly and sliding-window packet detection working
+* TypeScript models exist for `0x00030000` and `0x00038000`
+* Next: capture normalizer and fixture builder to support broader protocol testing
 
 ---
 
