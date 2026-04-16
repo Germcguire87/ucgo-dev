@@ -1,0 +1,20 @@
+{
+  "name": "ucgo-test-harness",
+  "version": "0.1.0",
+  "description": "Feed real UCGO packet captures through ucgo-core and validate the full wire flow",
+  "author": "Gerard McGuire",
+  "license": "ISC",
+  "type": "module",
+  "scripts": {
+    "run": "tsx src/index.ts",
+    "vectors": "tsx src/index.ts --vectors"
+  },
+  "dependencies": {
+    "ucgo-core": "file:../../ucgo-core"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  }
+}

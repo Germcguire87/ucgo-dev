@@ -57,8 +57,7 @@ The header contains the `head` and `tail` markers as fixed fields within it, not
 | Offset | Size                | Type     | Description                                     |
 | ------ | ------------------- | -------- | ----------------------------------------------- |
 | 0x40   | 1                   | byte     | `0x80 \| username_length`                       |
-| 0x41   | `username_len * 2`  | UTF-16LE | Username (no null terminator in this field)     |
-| var    | 2                   | bytes    | Null terminator: `00 00`                        |
+| 0x41   | `username_len * 2`  | UTF-16LE | Username (no null terminator)                   |
 | var    | 4                   | uint32   | Client version: `0x000010A9` (observed, BE)     |
 | var    | 1                   | byte     | `0x80 \| encrypted_payload_size`                |
 | var    | `payload_size`      | bytes    | UCGOblowfish-encrypted password (see below)     |
@@ -130,7 +129,7 @@ payload_size_byte = 0x80 | len(ciphertext)
 
 | Username    | Ciphertext (hex, first block)    | Decrypted password |
 | ----------- | -------------------------------- | ------------------ |
-| testuser    | `F1723D76FDC33C4A`               | `a`                |
+| testuser    | `8132164993621AA1`               | `a`                |
 | testuser    | `137798C41D8ED6E0...`            | `password`         |
 | testuser    | `4F1FBE629A9D91C0...`            | `ZZZZZZZZ`         |
 | testuser    | `163F7955B1422AB5...`            | `1234567`          |
@@ -191,7 +190,7 @@ Encrypt order: XOR → Blowfish
 
 ```
 header_size      = 64
-username_bytes   = username_len * 2 + 2  (UTF-16LE + null terminator)
+username_bytes   = username_len * 2  (UTF-16LE, no null terminator)
 version_bytes    = 4
 size_byte        = 1
 payload_bytes    = ceil(password_len * 2 / 8) * 8

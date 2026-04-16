@@ -144,7 +144,7 @@ All tested against the UCGOhost server (modified client with `QQzXzQnpzTpnXz` ou
 
 | Username    | Password  | Ciphertext (first 8 bytes) |
 | ----------- | --------- | -------------------------- |
-| testuser    | a         | `F1723D76FDC33C4A`         |
+| testuser    | a         | `8132164993621AA1`         |
 | testuser    | password  | `137798C41D8ED6E0`         |
 | testuser    | ZZZZZZZZ  | `4F1FBE629A9D91C0`         |
 | testuser    | 1234567   | `163F7955B1422AB5`         |
