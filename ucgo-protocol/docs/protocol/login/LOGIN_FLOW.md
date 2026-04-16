@@ -133,7 +133,7 @@ The account ID is the primary session identifier throughout the entire flow:
 | `0x00008000` | Info → Client      | Info status response         | 🟢 Complete |
 | `0x00030000` | Client → Login     | Login request                | 🟢 Complete |
 | `0x00030001` | Client → Login     | Account ID echo              | 🟢 Complete |
-| `0x00030002` | Client → Login     | Unknown (×2)                 | 🔴 Unknown |
+| `0x00030002` | Client → Login     | Request Character data                 | 🟢 Complete |
 | `0x00030003` | Client → Login     | Create character             | 🟡 Partial |
 | `0x00030004` | Client → Login     | Delete character             | 🟢 Complete |
 | `0x00030005` | Client → Login     | Game server request          | 🟢 Complete |

@@ -6,135 +6,105 @@
 
 It contains utilities used to **analyze, extract, validate, and generate** UCGO protocol data based on real client ↔ server captures.
 
-This is where reverse engineering work becomes **repeatable, testable, and automated**.
+---
+
+## Purpose
+
+* Parse raw network captures and reassemble TCP streams
+* Decrypt and inspect UCGO packets
+* Validate `ucgo-core` codec implementations against real capture data
+* Verify crypto test vectors from `ucgo-protocol/docs/protocol/login/CRYPTO_REFERENCE.md`
 
 ---
 
-## 🎯 Purpose
+## Philosophy
 
-The goal of `ucgo-tools` is to support protocol discovery and validation by providing:
-
-* Tools to parse raw network captures
-* Utilities to extract and isolate UCGO packets
-* Helpers to inspect and debug packet structures
-* Fixture generation for testing protocol behavior
-* (Future) a mock client for rapid server-side testing
-
-This layer acts as the **bridge between raw data and structured protocol knowledge**.
+* **Work from real data** — All tooling operates on actual captures whenever possible.
+* **Keep tools modular** — Each tool has a clear, focused responsibility.
+* **Support iteration** — Reverse engineering is exploratory; tools should evolve easily.
+* **Avoid production coupling** — This is not server code. It remains flexible and experimental.
 
 ---
 
-## 🧠 Philosophy
+## Structure
 
-* **Work from real data**
-  All tooling should operate on actual captures whenever possible.
-
-* **Keep tools modular**
-  Each tool should have a clear, focused responsibility.
-
-* **Support iteration**
-  Reverse engineering is exploratory—tools should evolve easily.
-
-* **Avoid production coupling**
-  This is not server code. It should remain flexible and experimental.
-
----
-
-## 📁 Structure
-
-```txt
-ucgo-tools/
-  models/
-  packet-decoder/
-    src/
-    data/
-    docs/
-  script-runner/
-    scripts/
 ```
+ucgo-tools/
+  packet-decoder/     # Decrypts raw captures; the ground truth crypto implementation
+  script-runner/      # One-off scripts for isolated crypto and protocol research
+  test-harness/       # Feeds real captures through ucgo-core and validates results
+  models/             # Legacy TypeScript packet interfaces (superseded by ucgo-core)
+```
+
+---
 
 ### `packet-decoder/`
 
-The primary tool. Parses `.pcap` and Wireshark text exports, reassembles TCP streams,
-decrypts UCGO packets, and outputs hex dumps and JSON for protocol documentation.
+The primary reverse engineering tool. Parses `.pcap` and Wireshark text exports, reassembles TCP streams, decrypts UCGO packets using the non-standard Blowfish + XOR pipeline, and outputs hex dumps and JSON for protocol documentation.
+
+This is the **ground truth** implementation for crypto. If `ucgo-core` ever diverges from `packet-decoder` in behavior, `ucgo-core` is wrong.
 
 See [packet-decoder/README.md](packet-decoder/README.md) for usage.
 
-### `models/`
+---
 
-TypeScript interfaces matching documented packet structures. Currently covers:
+### `test-harness/`
 
-* `ClientLoginRequest30000.ts` — `0x00030000`
-* `ServerLoginResponse38000.ts` — `0x00038000`
+Feeds real UCGO packet captures through `ucgo-core` and validates the full wire decode pipeline. Also runs crypto test vectors from the protocol documentation.
 
-These are intended to evolve alongside the protocol documentation.
+```bash
+cd test-harness
+npm install
+npm run vectors                      # Run crypto vector validation only
+npm run run <capture.pcap>           # Decode a single capture
+npm run run                          # Batch mode — scans ucgo-protocol/captures/raw/ucgohost-style/login/
+npm run run <capture.pcap> --verbose # Include raw body hex dump
+npm run run <capture.pcap> --original # Use chrTCPPassword instead of UCGOhost key
+```
+
+---
 
 ### `script-runner/`
 
-Experimental scripts for isolated crypto and decryption tests. Not part of the main
-decode pipeline — used for one-off verification during protocol research.
+Experimental scripts for isolated crypto and decryption tests. Not part of the main decode pipeline — used for one-off verification during protocol research.
+
+Scripts:
+- `decryptTest.ts` — early Blowfish key candidate analysis against known ciphertext blocks
+- `checkVector.ts` — investigation script for the login password crypto test vectors
 
 ---
 
-## 🔧 Planned Tools
+### `models/`
 
-As the project evolves, additional tools will be added:
-
-### `capture-normalizer/`
-
-* Convert Wireshark dumps and other formats into a consistent structure
-
-### `fixture-builder/`
-
-* Generate reusable packet fixtures for testing
-
-### `packet-inspector/`
-
-* CLI tool to visualize packet structure and fields
-
-### `mock-client/`
-
-* Scriptable client to send packets to a local server
-* Enables rapid testing without using the real UCGO client
-
-### `scenario-runner/`
-
-* Higher-level testing framework built on the mock client
-* Used to simulate gameplay flows (login, crafting, etc.)
+Legacy TypeScript packet interfaces created before `ucgo-core` existed. Covers `ClientLoginRequest30000` and `ServerLoginResponse38000`. Kept for historical reference; `ucgo-core` is the authoritative source for all packet models.
 
 ---
 
-## 🔄 How It Fits Into the Project
+## How It Fits
 
-```txt
-raw captures → ucgo-tools → structured data → ucgo-protocol docs → (future) ucgo-core
+```
+raw captures → packet-decoder → captures/parsed/ → ucgo-protocol docs
+                                                          ↓
+                    test-harness ← ucgo-core (codecs) ←──┘
 ```
 
-* `ucgo-tools` consumes raw or semi-processed capture data
-* Produces structured outputs and insights
-* Feeds into protocol documentation (`ucgo-protocol`)
-* Eventually supports development and testing of `ucgo-core`
+* `packet-decoder` processes raw capture data and produces the parsed output that feeds protocol documentation
+* `ucgo-core` implements the codecs derived from that documentation
+* `test-harness` closes the loop by running real captures through `ucgo-core` and confirming the decode output matches what `packet-decoder` produces
 
 ---
 
-## 🚀 Current Status
+## Current Status
 
-* Packet decoder is functional — handles `.pcap` and Wireshark text exports
-* Full decrypt pipeline operational (Blowfish + XOR table)
-* TCP stream reassembly and sliding-window packet detection working
-* TypeScript models exist for `0x00030000` and `0x00038000`
-* Next: capture normalizer and fixture builder to support broader protocol testing
+* `packet-decoder` — functional; handles `.pcap` and Wireshark text exports, full decrypt pipeline (Blowfish + XOR), TCP stream reassembly
+* `test-harness` — functional; crypto vector validation passes, capture decode pipeline wired to `ucgo-core`
+* `script-runner` — research scripts used during Blowfish key and password crypto investigation; not part of any pipeline
+* `models/` — legacy; use `ucgo-core` for all packet model needs
 
 ---
 
-## ⚠️ Notes
+## Notes
 
-* This directory may evolve rapidly as new discoveries are made
 * Tool APIs and structures are not yet stable
-* Expect refactors as understanding of the protocol improves
-
----
-
-## 📌 Summary
-
-`ucgo-tools` is the experimental engine of the project—turning raw network data into actionable knowledge and enabling rapid iteration as the UCGO protocol is uncovered.
+* Expect refactors as protocol understanding improves
+* The `packet-decoder` requires `xortable.dat` in `packet-decoder/data/`
