@@ -1,42 +1,43 @@
 /**
  * CLIENT_GAME_SERVER_REQUEST (0x00030005)
  *
- * Sent by the client when the player selects a character and requests
- * game server handoff. This is the final client packet in the login flow.
+ * Sent by the client when the player selects a character and clicks Play.
+ * This is the final exchange before the client connects to the game server.
  *
- * Body layout (inferred — no decoded capture available for this opcode):
- *   0  4  accountId   (BE uint32) — authenticated account
- *   4  4  characterId (BE uint32) — selected character
- *   8  1  terminator  (0x01 — matches sibling packet 0x00030002 pattern)
+ * Body layout (9 bytes, verified from live capture):
+ *   0  4  securityToken (BE uint32) — echoed from SERVER_LOGIN_RESPONSE (0x00038000) field 2
+ *   4  4  accountId     (BE uint32) — authenticated account
+ *   8  1  terminator    (always 0x01, matching sibling packet pattern)
  *
- * NOTE: Layout is inferred from LOGIN_FLOW.md ("account ID + character ID")
- * and the consistent pattern of sibling packets (0x00030001, 0x00030002).
- * Verify against a live capture when available.
+ * Note: there is no characterId in this packet. The server tracks the selected
+ * character via the prior CLIENT_REQUEST_CHARACTER_DATA (0x00030002) exchange.
+ * The securityToken is hardcoded to 0x12345678 in the original UCGOhost server.
  */
 
 import { BinaryReader } from "../../binary/BinaryReader.js";
 import { BinaryWriter } from "../../binary/BinaryWriter.js";
 
 export interface ClientGameServerRequest30005 {
+  /** Echoed from SERVER_LOGIN_RESPONSE securityToken (0x12345678 in UCGOhost) */
+  securityToken: number;
   accountId: number;
-  characterId: number;
-  /** Always 0x01 (matching sibling packet pattern) */
+  /** Always 0x01 */
   terminator: number;
 }
 
 export const ClientGameServerRequest30005Codec = {
   decode(body: Buffer): ClientGameServerRequest30005 {
-    const r           = new BinaryReader(body);
-    const accountId   = r.readUInt32BE();
-    const characterId = r.readUInt32BE();
-    const terminator  = r.readUInt8();
-    return { accountId, characterId, terminator };
+    const r             = new BinaryReader(body);
+    const securityToken = r.readUInt32BE();
+    const accountId     = r.readUInt32BE();
+    const terminator    = r.readUInt8();
+    return { securityToken, accountId, terminator };
   },
 
   encode(model: ClientGameServerRequest30005): Buffer {
     const w = new BinaryWriter();
+    w.writeUInt32BE(model.securityToken);
     w.writeUInt32BE(model.accountId);
-    w.writeUInt32BE(model.characterId);
     w.writeUInt8(model.terminator);
     return w.toBuffer();
   },

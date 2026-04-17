@@ -7,9 +7,11 @@
  * Server behaviour:
  *   1. Validate session is authenticated
  *   2. Validate the echoed account ID matches session
- *   3. Validate the character belongs to this account
- *   4. Store selected character in session state
- *   5. Send 0x00038005 with game server IP + port
+ *   3. Send 0x00038005 with game server IP + port
+ *
+ * The packet contains a securityToken (echoed from 0x00038000) and the
+ * accountId. There is no characterId — the selected character is tracked
+ * server-side from the prior 0x00030002 exchange.
  *
  * After receiving 0x00038005, the client opens a new TCP connection to
  * the game server at the provided address and port (24010).
@@ -40,16 +42,15 @@ export const gameServerRequestHandler: PacketHandler<
     _envelope: PacketEnvelope,
     ctx: LoginHandlerContext,
   ): Promise<void> {
-    const { session, services, config, send } = ctx;
-    const charHex  = `0x${packet.characterId.toString(16).toUpperCase().padStart(8, "0")}`;
-    const acctHex  = `0x${packet.accountId.toString(16).toUpperCase().padStart(8, "0")}`;
+    const { session, config, send } = ctx;
+    const acctHex = `0x${packet.accountId.toString(16).toUpperCase().padStart(8, "0")}`;
 
     if (!session.authenticated || session.accountId === undefined) {
       console.warn(`[GameServerReq] Request on unauthenticated session — ignored.`);
       return;
     }
 
-    console.log(`[GameServerReq] accountId=${acctHex} characterId=${charHex}`);
+    console.log(`[GameServerReq] accountId=${acctHex} securityToken=0x${packet.securityToken.toString(16).toUpperCase().padStart(8, "0")}`);
 
     if (packet.accountId !== session.accountId) {
       console.warn(
@@ -59,19 +60,11 @@ export const gameServerRequestHandler: PacketHandler<
       return;
     }
 
-    if (!services.character.isOwnedByAccount(packet.characterId, session.accountId)) {
-      console.warn(`[GameServerReq] Char ${charHex} not owned by account ${acctHex} — ignored.`);
-      return;
-    }
-
-    session.selectedCharacterId = packet.characterId;
-
+    const ip = config.gameServerIp;
     console.log(
-      `[GameServerReq] Handoff → ${config.gameServerIp}:${config.gameServerPort} ` +
-      `for char ${charHex}`,
+      `[GameServerReq] Handoff → ${ip}:${config.gameServerPort} for account ${acctHex}`,
     );
 
-    const ip = config.gameServerIp;
     send(Opcode.SERVER_GAME_SERVER_INFO, ServerGameServerInfo38005Codec.encode({
       resultCode:     0x00000001,
       ipLengthMarker: 0x80 | ip.length,
