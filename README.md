@@ -77,40 +77,23 @@ The **server implementations**.
 |--------|------|-------------|
 | [`ucgo-info-server`](apps/ucgo-info-server/README.md) | `24012` | Pre-login status ping — responds online/offline before the client attempts auth |
 | [`ucgo-login-server`](apps/ucgo-login-server/README.md) | `24018` | Authentication, character data delivery, and game server handoff |
+| `ucgo-game-server` _(planned)_ | `24010` | Game world bootstrap, world state, and ongoing gameplay |
 
 ---
 
 ## Current Status
 
-### Login Protocol — Implementation Complete (Happy Path)
+### Login protocol — complete (happy path)
 
-The full client ↔ login server handshake is documented and implemented end-to-end. A client can authenticate, receive character data, and be handed off to the game server.
+The full client ↔ login server exchange is documented and implemented end-to-end. A client can authenticate, receive character slot and character data, and be handed off to the game server. Crypto (non-standard Blowfish + XOR table) is fully documented and verified against known test vectors.
 
-#### Info Server
+See [`ucgo-protocol/docs/protocol/login/`](ucgo-protocol/docs/protocol/login/) for packet-level documentation.
 
-| Opcode | Name | Direction | Protocol Doc | Server Implementation |
-|--------|------|-----------|:------------:|:---------------------:|
-| `0x00000000` | `CLIENT_INFO_REQUEST` | Client → Info | Complete | Implemented |
-| `0x00008000` | `SERVER_INFO_RESPONSE` | Info → Client | Complete | Implemented |
+### Game protocol — bootstrap chain documented, server not yet scaffolded
 
-#### Login Server
+The initial game server bootstrap sequence is documented from live captures. The core opcode chain — session bind, player registration, container/inventory load, and coordinate sync — is confirmed at high confidence against multiple private server implementations.
 
-| Opcode | Name | Direction | Protocol Doc | Server Implementation |
-|--------|------|-----------|:------------:|:---------------------:|
-| `0x00030000` | `CLIENT_LOGIN_REQUEST` | Client → Login | Complete | Implemented |
-| `0x00030001` | `CLIENT_ACCOUNT_ECHO` | Client → Login | Complete | Implemented |
-| `0x00030002` | `CLIENT_REQUEST_CHARACTER_DATA` | Client → Login | Complete | Implemented |
-| `0x00030003` | `CLIENT_CREATE_CHARACTER` | Client → Login | Complete | Not yet implemented |
-| `0x00030004` | `CLIENT_DELETE_CHARACTER` | Client → Login | Complete | Not yet implemented |
-| `0x00030005` | `CLIENT_GAME_SERVER_REQUEST` | Client → Login | Complete | Implemented |
-| `0x00038000` | `SERVER_LOGIN_RESPONSE` | Login → Client | Complete | Implemented |
-| `0x00038001` | `SERVER_CHARACTER_SLOT_LIST` | Login → Client | Complete | Implemented |
-| `0x00038002` | `SERVER_CHARACTER_DATA` | Login → Client | Complete | Implemented |
-| `0x00038003` | `SERVER_CREATE_CHARACTER_RESPONSE` | Login → Client | Complete | Not yet implemented |
-| `0x00038004` | `SERVER_DELETE_CHARACTER_RESPONSE` | Login → Client | Complete | Not yet implemented |
-| `0x00038005` | `SERVER_GAME_SERVER_INFO` | Login → Client | Complete | Implemented |
-
-Crypto (non-standard Blowfish + XOR table) is fully documented and implemented. The transport pipeline and login password decryption are verified against known test vectors.
+See [`ucgo-protocol/docs/protocol/game/GAME_FLOW.md`](ucgo-protocol/docs/protocol/game/GAME_FLOW.md) and [`GAME_OPCODE_MATRIX.md`](ucgo-protocol/docs/protocol/game/GAME_OPCODE_MATRIX.md) for current findings.
 
 ---
 
@@ -118,13 +101,13 @@ Crypto (non-standard Blowfish + XOR table) is fully documented and implemented. 
 
 Near-term:
 
-* Implement character creation (`0x00030003` / `0x00038003`) and deletion (`0x00030004` / `0x00038004`) in the login server
+* Implement character creation and deletion in the login server
 * Replace in-memory repositories with persistent storage
 
 Mid-term:
 
-* Begin documenting the game server protocol (post-login handoff on port `24010`)
 * Scaffold `ucgo-game-server` using the same `ucgo-core` foundation
+* Continue game protocol documentation into active gameplay (movement, combat, chat)
 
 Long-term:
 
