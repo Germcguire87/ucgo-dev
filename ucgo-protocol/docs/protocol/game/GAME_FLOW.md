@@ -2,7 +2,7 @@
 
 ## Status
 
-🟡 PARTIAL (EARLY BOOTSTRAP DOCUMENTED)
+🟡 PARTIAL (CORE BOOTSTRAP CHAIN DOCUMENTED — LOGIN/REGISTER/ITEM/COORD CONFIRMED)
 
 ## Servers Involved
 
@@ -26,25 +26,26 @@ The client then opens a **new TCP connection** to the provided game server IP an
 From the `initial_game_load_no_movement.txt` capture:
 
 ```text
-Login Server → Client   0x00038005   Game server info
+Login Server → Client   0x00038005   SERVER_GAME_SERVER_INFO
 Client opens new TCP connection to game server:24010
 
-Client → Game Server    0x00000041   RequestLoginGame
-Client → Game Server    0x00000038   RequestRegisterPlayer
-Client → Game Server    0x00000013   RequestServerTime
-Client → Game Server    0x00000016   RequestItemInfo         (burst, repeated)
-Server → Client         0x00008038   Register player response
-Server → Client         0x00008016   Item info response      (repeated)
+Client → Game Server    0x00000041   RequestLoginGame          (seq 1)
+Server → Client         0x00008041   NotifyLoginGame           (success: 0x00100002)
+Client → Game Server    0x00000038   RequestRegisterPlayer     (seq 2)
+Client → Game Server    0x00000013   RequestServerTime         (seq 3)
+Client → Game Server    0x00000016   RequestItemInfo           (burst, repeated; seq 4–20+)
+Server → Client         0x00008038   NotifyRegisterPlayer      (includes character ID)
+Server → Client         0x00008016   ResponseItemInfo          (repeated; one per 0x16 request)
 Client → Game Server    0x00000070   RequestOccupationCityInfoList
 Client → Game Server    0x00000000   RequestRegistCoordMgr
 Client → Game Server    0x00000003   RequestPlayerCoordDataList
-Server → Client         0x00008003   Coord data list response
+Server → Client         0x00008003   NotifyPlayerCoordDataList (visible entity list)
 Client → Game Server    0x00000006   RequestSimplePlayerInfo
 Client → Game Server    0x0000000A   RequestPlayerLooksBuff
-Client → Game Server    0x00000005   RequestSpaceCircuitItem (repeated)
+Client → Game Server    0x00000005   RequestSpaceCircuitItem   (repeated)
 ```
 
-This is the earliest documented **world bootstrap** sequence observed so far. No movement input was performed during the capture.
+This is the earliest documented **world bootstrap** sequence observed so far. No movement input was performed during the capture. Movement-phase packets (`0x00000002`) are absent here by design.
 
 ---
 
@@ -54,14 +55,40 @@ The initial game server login is not a single request/response pair like the log
 
 Observed categories:
 
-- **Session / identity bind** — `0x00000041`
-- **Player registration** — `0x00000038` / `0x00008038`
+- **Session / identity bind** — `0x00000041` (activates character on game server; requires `loginMode == 0x00010000`) / `0x00008041` (success = `0x00100002`; error = `0x00000007` or `0xFFFFFFFF`)
+- **World entity registration** — `0x00000038` (world-entry handshake; body is `unk0 + characterId`) / `0x00008038` (confirms player active in simulation; includes character ID)
 - **Time sync** — `0x00000013`
-- **Item / object data pulls** — repeated `0x00000016` / `0x00008016`
-- **Coordinate manager / world registration** — `0x00000000`
-- **Nearby player coordinate data** — `0x00000003` / `0x00008003`
+- **Container / item / inventory data pulls** — repeated `0x00000016` / `0x00008016`; one request per container; payload includes unique ID, parent ID, and static ID chains
+- **Coordinate manager / world subscription** — `0x00000000`
+- **Position update + visible entity list** — `0x00000003` (carries `accountId`, `characterId`, zone, `x/y/z`) / `0x00008003` (full visible player+NPC list; includes position, faction, vehicle, rank, and appearance fields per entity)
+- **Live movement / state stream** — `0x00000002` (high-frequency; carries full position, orientation, vehicle context, combat state; no direct response; active gameplay only)
 - **Simple player info / appearance / container-related data** — `0x00000006`, `0x0000000A`, `0x00000005`
 - **Occupation / city state** — `0x00000070`
+
+---
+
+## Active Gameplay Flow (Post-Bootstrap)
+
+Once the bootstrap sequence completes, movement-triggered packets begin:
+
+```text
+Client → 0x00000002   RequestPlayerCoordUpdate   (per movement / rotation)
+Server processes position + state mutation
+Server → 0x00008003   NotifyPlayerCoordDataList  (broadcasts updated world state to nearby clients)
+
+Client → 0x00000003   RequestPlayerCoordDataList (periodic world/visibility sync)
+Server → 0x00008003   NotifyPlayerCoordDataList  (refreshes visible entity list)
+```
+
+Key distinctions:
+
+| Opcode       | Phase       | Frequency    | Response | Role |
+| ------------ | ----------- | ------------ | -------- | ---- |
+| `0x00000002` | Gameplay    | High (per input) | None (fire-and-forget) | Client → server state mutation |
+| `0x00000003` | Both        | Periodic     | `0x00008003` | Client requests entity list refresh |
+| `0x00008003` | Both        | Per `0x03`   | —        | Server broadcasts visible world state |
+
+`0x00000002` does **not** have a direct response. The server updates its internal state and may subsequently send `0x00008003` to nearby clients as a downstream effect.
 
 ---
 
@@ -83,11 +110,12 @@ This indicates the game server maintains its own packet sequence independent of 
 
 Game server responses observed so far follow the same high-bit response pattern used elsewhere in UCGO:
 
+- Client request `0x00000041` → Server response `0x00008041`
 - Client request `0x00000038` → Server response `0x00008038`
 - Client request `0x00000016` → Server response `0x00008016`
 - Client request `0x00000003` → Server response `0x00008003`
 
-This strongly suggests many game opcodes follow:
+This is now confirmed for the core bootstrap chain and strongly suggests many game opcodes follow:
 
 ```text
 request_opcode | 0x00008000 = response_opcode
@@ -132,14 +160,24 @@ This makes the game protocol substantially more complex than the login protocol 
 
 ---
 
-## Next Steps
+## Documentation Status
 
-Priority documentation targets:
+### Completed
 
-1. `0x00000041` / first game-login packet
-2. `0x00000038` / `0x00008038` player registration pair
-3. `0x00000016` / `0x00008016` item info request/response family
-4. `0x00000003` / `0x00008003` coordinate data list pair
+| Opcode(s) | Name | Confidence |
+| --------- | ---- | ---------- |
+| `0x00000041` / `0x00008041` | RequestLoginGame / NotifyLoginGame | 🟢 High |
+| `0x00000038` / `0x00008038` | RequestRegisterPlayer / NotifyRegisterPlayer | 🟢 High |
+| `0x00000016` / `0x00008016` | RequestItemInfo / ResponseItemInfo | 🟢 High |
+| `0x00000003` / `0x00008003` | RequestPlayerCoordDataList / NotifyPlayerCoordDataList | 🟢 High |
+| `0x00000002` | RequestPlayerCoordUpdate | 🟢 High |
+
+### Remaining Priorities
+
+1. `0x00000000` (`RequestRegistCoordMgr`) — body layout unknown
+2. `0x00000005` (`RequestSpaceCircuitItem`) — semantics unclear
+3. `0x00000013` (`RequestServerTime`) — body and response not yet documented
+4. `0x00000006`, `0x0000000A` — player info / appearance request bodies
 5. Identify first true idle / heartbeat packet after bootstrap completes
 
 ---

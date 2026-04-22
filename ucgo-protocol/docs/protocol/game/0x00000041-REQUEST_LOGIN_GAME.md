@@ -2,7 +2,7 @@
 
 ## Status
 
-🟡 PARTIAL (HIGH CONFIDENCE CORE STRUCTURE)
+🟢 HIGH CONFIDENCE (ROLE + CORE STRUCTURE CONFIRMED VIA MULTIPLE SERVER IMPLEMENTATIONS)
 
 ## Direction
 
@@ -10,94 +10,133 @@ Client → Game Server
 
 ## Summary
 
-First packet sent by the client after opening the new TCP connection to the game server. It appears to bind the selected account/session/character identity to the gameplay connection.
+Primary game-server login request used to transition the client from login-server handoff into an authenticated game-world session.
 
-This is the game-server equivalent of “enter world with this selected character.”
+This is the first major packet sent on the new game-server TCP stream after the login server hands the client off.
 
 ---
 
 ## Capture Metadata (Representative)
 
-| Field      | Value              |
-| ---------- | ------------------ |
-| Opcode     | `0x00000041`       |
-| Sequence   | `1`                |
-| SysMessage | `0x00000000`       |
-| Direction  | clientToGameServer |
-| XORSize    | `42`               |
-| BlowfishSize | `48`             |
+| Field        | Value                                                   |
+| ------------ | ------------------------------------------------------- |
+| Opcode       | `0x00000041`                                            |
+| Direction    | Client → Game Server                                    |
+| Occurrence   | First observed client packet on the `24010` game stream |
+| XORSize      | `42`                                                    |
+| BlowfishSize | `48`                                                    |
 
 ---
 
 ## Header
 
-Standard 64-byte UCGO packet header. Sequence resets to `1` on the new game server connection.
+Standard 64-byte UCGO packet header.
 
 ---
 
-## Observed Body Bytes
+## Confirmed Request Structure
+
+Both Titans and UCGOHost confirm the same leading structure.
+
+### Layout (Big Endian)
+
+| Field           | Type  | Description                                                                 |
+| --------------- | ----- | --------------------------------------------------------------------------- |
+| loginMode       | u32   | Must be `0x00010000`                                                        |
+| characterId     | u32   | Character ID selected for game login                                        |
+| trailingUnknown | u32   | Present in UCGOHost; read but not meaningfully used                         |
+| remainingData   | bytes | Additional payload present in captures, but ignored by both implementations |
+
+---
+
+## Capture Correlation
+
+In the live capture, this packet clearly contains:
+
+* the selected character ID
+* a session/account-style token
+* the character name in UTF-16LE
+
+Even though the private server implementations do not parse those later fields, the live packet shows the client is sending more data than the minimal required fields. At minimum, both implementations only rely on the first `0x00010000` constant and the `characterId`.
+
+---
+
+## Titans Behavior
+
+Titans performs the following logic:
+
+1. Read `loginMode`
+2. Require `loginMode == 0x00010000`
+3. Read `characterId`
+4. Load the character into the `GameSession`
+5. Set session state to `AUTHENTICATED`
+6. Register the session/player in the game world
+7. Send `NotifyLoginGame(SUCCESS)` using opcode `0x8041`
+
+This shows that `0x41` is the request that actually activates the player session on the game server.
+
+---
+
+## UCGOHost Behavior
+
+UCGOHost performs a richer version of the same process:
+
+1. Require first field to equal `0x00010000`
+2. Read `characterId`
+3. Read one additional `u32`
+4. Resolve account ID from the character
+5. Reject if the account is already connected
+6. Load full character data
+7. Ensure core containers exist and are linked
+8. Restore clothing / active vehicle or transport state
+9. Register the player in the active game player list
+10. Send success response `0x8041` with a fixed success body 
+
+This strongly confirms that `0x41` is the root packet for game-session initialization.
+
+---
+
+## Interpretation
+
+This opcode is best understood as:
+
+> **Client request to log the selected character into the game server and initialize the full game session**
+
+It likely gates:
+
+* session authentication on game server
+* character/world loading
+* container linking
+* clothing and vehicle restoration
+* world registration
+* permission/visibility state
+
+---
+
+## Flow Context
 
 ```text
-00 01 00 00
-09 7F 45 A0
-12 34 56 78
-00 00 00 00
-8B 41 00 6E 00 6F 00 74 00 68 00 65 00 72 00 20 00 47 00 75 00 79 00
-00 01 80
+Login Server → 0x00038005   SERVER_GAME_SERVER_INFO
+Client opens TCP connection to game server
+Client → 0x00000041         RequestLoginGame
+Server → 0x00008041         NotifyLoginGame
+Client → 0x00000038         RequestRegisterPlayer
+Server → 0x00008038         NotifyRegisterPlayer
 ```
 
 ---
 
-## Tentative Body Structure
+## Important Notes
 
-| Offset | Size | Type | Description |
-| ------ | ---- | ---- | ----------- |
-| `0x40` | 4    | uint32 | Unknown / mode / result-like field — observed `0x00010000` |
-| `0x44` | 4    | uint32 | Character ID (BE) |
-| `0x48` | 4    | uint32 | Security token / session token (`0x12345678` in UCGOhost captures) |
-| `0x4C` | 4    | uint32 | Unknown / reserved — observed `0x00000000` |
-| `0x50` | var  | UTF-16LE string | Character name (`Another Guy`) with prefixed high-bit length byte |
-| `var`  | 3    | bytes | Trailing flags / terminator (`00 01 80` observed) |
+* `0x00010000` is a required constant in both implementations
+* `characterId` is the key field
+* Additional trailing request data exists in live captures but is not required by the known server implementations
+* This is the packet that moves the session into authenticated in-game state
 
 ---
 
-## Evidence
+## Open Questions
 
-This packet includes all of the identity-bearing fields expected for game-session binding:
-
-- Selected character ID
-- Login-issued security token
-- Character name in UTF-16LE
-
-The Titans private server maps opcode `0x41` to `RequestLoginGame`, which matches the observed role of this packet.
-
----
-
-## Flow Position
-
-```text
-1. Login Server → Client   0x00038005   Game server info
-2. Client opens TCP connection to game server:24010
-3. Client → Game Server    0x00000041   ← this packet
-4. Client → Game Server    0x00000038   Register player
-5. Client → Game Server    bootstrap burst continues
-```
-
----
-
-## Source Reference
-
-From `GameOpcodeMap.java` (Titans server):
-
-```java
-map.put(new Integer(0x41), new RequestLoginGame(0x41));
-```
-
----
-
-## Unknowns / Open Questions
-
-- Exact meaning of the first 4-byte field (`0x00010000` observed)
-- Exact encoding of the character-name length / marker byte (`0x8B` observed)
-- Whether the trailing `00 01 80` bytes are flags, terminators, or state selectors
-- Which server opcode is the direct logical response to this request
+* Exact meaning of the trailing `u32`
+* Exact purpose of the extra identity/session/name data present in live captures
+* Whether retail server used more of the request body than the private server implementations currently do
