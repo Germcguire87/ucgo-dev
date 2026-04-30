@@ -1,41 +1,43 @@
 # 0x00000013 — REQUEST_SERVER_TIME
 
 ## Status
-🟡 Partial — Observed in live capture; naming based on capture evidence and private server source cross-reference where available
+🟢 Confirmed — Observed in multiple live captures; packet structure annotated from hex data
 
 ## Direction
 Client → Game Server
 
 ## Summary
-Requests the current server time or time-sync data.
+Client requests the current server time early in the bootstrap sequence. Sent once, near the beginning of the connection (sequence 3 in all observed captures), before player-specific data is exchanged.
 
 ## Confidence
 High
 
-## Observed In Capture
-- File: `initial_game_load_no_movement.txt`
-- Port: `24010`
-- Seen 1 time(s) in this capture
-- Observed as a small one-shot bootstrap request early in the sequence.
+## Observed In Captures
+- `tiny_move_forward.txt`, `no_movement_pure_idle.txt`, `movement_test.txt`, `very_small_rotation.txt`, `rotation_only.txt`
+- Sequence: 3 (always)
+- Occurs: once per session
+
+## Packet Structure
+
+| Offset | Size | Type  | Name       | Value (observed)       | Notes                                                  |
+|--------|------|-------|------------|------------------------|--------------------------------------------------------|
+| 0x00   | 4    | u32   | unk0       | `00 00 00 00`          | Always zero in captures; purpose unknown               |
+| 0x04   | 4    | u32   | sentinel   | `FF FF FF FF`          | Always `0xFFFFFFFF`; possibly "no prior timestamp" sentinel |
+| 0x08   | 1    | u8    | unk1       | `00`                   | Always zero; possibly padding                          |
+
+**Total body size: 9 bytes** (XORSize = 9, BlowfishSize = 16)
+
+## Capture Example
+From `tiny_move_forward.txt`, Packet 3, Sequence 3:
+```
+0040:   00 00 00 00 FF FF FF FF 00
+```
 
 ## Flow Context
-- This opcode was observed during the initial game-world bootstrap after login handoff.
-- The capture covers character selection, TCP connect to the game server, and initial world load with no movement.
-- This document is intentionally conservative and may be renamed as protocol understanding improves.
-
-## Current Understanding
-- Opcode: `0x00000013`
-- Tentative name: `REQUEST_SERVER_TIME`
-- Direction: Client → Game Server
-- Bootstrap role: observed during early world-entry initialization
-
-## Open Questions
-- Exact body layout and field meanings
-- Whether this packet is mandatory in all login/world-entry flows
-- Whether this opcode has sub-modes or result codes in its payload
-- How this packet pairs with surrounding request/response traffic
+- Sent at connection sequence 3, immediately after two 0x00000003 coord update packets
+- Always precedes 0x00000070 (REQUEST_OCCUPATION_CITY_INFO_LIST) in the bootstrap
+- Server responds with 0x00008013 (RESPONSE_SERVER_TIME) at the same sequence number
 
 ## Notes
-- Client-side names are grounded in the private server opcode registries when available.
-- Server-side names are currently inferred as response counterparts to the observed client requests.
-- This file should be updated as soon as byte-level annotation work begins for this opcode.
+- The `FF FF FF FF` sentinel in the `sentinel` field likely signals "I have no prior time reference" on first connection
+- The sequencing pattern (seq 3 in all captures) suggests this fires at a fixed point in the TCP handshake, before the main bootstrap phase
